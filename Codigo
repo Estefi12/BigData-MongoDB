@@ -1,0 +1,126 @@
+. Consultas Básicas (CRUD)
+// C - CREATE: Insertar un nuevo documento
+db.accidentes.insertOne({
+    fechaOcurrencia: new Date("2025-11-23T22:30:00Z"),
+    codigoAccidente: "C-0020251123",
+    tipoAccidente: "ATROPELLO",
+    involucrados: {
+        vehiculos: 1,
+        heridos: 0
+    },
+    resultado: {
+        tipo: "MUERTES",
+        muertes: 1
+    },
+    ubicacion: {
+        direccion: "CALLE 100 CARRERA 15",
+        barrio: "EL NUEVO MILENIO"
+    }
+})
+
+// R - READ: Seleccionar (Consulta básica)
+db.accidentes.find({
+    "ubicacion.barrio": "EL NUEVO MILENIO",
+    "resultado.tipo": "MUERTES"
+})
+
+// U - UPDATE: Actualizar un documento
+db.accidentes.updateOne(
+    { codigoAccidente: "C-0020251123" },
+    {
+        $set: {
+            "involucrados.vehiculos": 2,
+            "resultado.tipo": "HERIDOS Y MUERTES"
+        }
+    }
+)
+
+// D - DELETE: Eliminar un documento
+db.accidentes.deleteOne(
+    { codigoAccidente: "C-0020251123" }
+)
+2. Consultas con Filtros y Operadores
+
+// Filtro 1: Operadores de Comparación ($gt, $lt)
+db.accidentes.find({
+    "involucrados.heridos": { $gt: 1 },
+    codigoAccidente: { $lt: "A001602265" }
+}).limit(5).pretty()
+
+// Filtro 2: Operador Lógico ($or)
+db.accidentes.find({
+    $or: [
+        { tipoAccidente: "ATROPELLO" },
+        { "ubicacion.barrio": "SIN INFORMACIÓN DEL BARRIO" }
+    ]
+}).limit(5).pretty()
+
+// Filtro 3: Operador de Elementos ($in)
+db.accidentes.find({
+    "ubicacion.barrio": {
+        $in: [
+            "CENTRO",
+            "LA TIZA",
+            "PORVENIR"
+        ]
+    }
+}).limit(5).pretty()
+
+3. Consultas de Agregación (Estadísticas)
+
+// Agregación 1: Top 5 de Barrios con Mayor Número de Accidentes (Contar)
+db.accidentes.aggregate([
+    {
+        $group: {
+            _id: "$ubicacion.barrio",
+            totalAccidentes: { $sum: 1 }
+        }
+    },
+    { $sort: { totalAccidentes: -1 } },
+    { $limit: 5 }
+])
+
+// Agregación 2: Distribución de Gravedad de Accidentes (Contar y Sumar)
+db.accidentes.aggregate([
+    {
+        $group: {
+            _id: "$resultado.tipo",
+            totalEventos: { $sum: 1 },
+            totalHeridos: { $sum: "$involucrados.heridos" },
+            totalMuertes: { $sum: "$resultado.muertes" }
+        }
+    },
+    { $sort: { totalEventos: -1 } }
+])
+4. Optimización y Validación (Cierre del Diseño)
+
+// Creación de Índices
+db.accidentes.createIndex( { "ubicacion.barrio": 1 } )
+db.accidentes.createIndex( { "resultado.tipo": 1, "fechaOcurrencia": 1 } )
+
+// Comando para aplicar Validación de Esquema (collMod)
+db.runCommand({
+   collMod: "accidentes",
+   validator: {
+      $jsonSchema: {
+         bsonType: "object",
+         required: [ "fechaOcurrencia", "codigoAccidente", "ubicacion" ],
+         properties: {
+            fechaOcurrencia: {
+               bsonType: "date"
+            },
+            involucrados: {
+               bsonType: "object",
+               properties: {
+                  heridos: {
+                     bsonType: "int",
+                     minimum: 0
+                  }
+               }
+            }
+         }
+      }
+   },
+   validationAction: "warn"
+})
+
